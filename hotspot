@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+
+import click
+import requests
+import json
+import subprocess
+import platform
+
+class Wifi():
+
+    TELEKOM_HOTSPOT_NAMES = ["t-mobile", "telekom"]
+
+    def is_telekom_hotspot(self):
+        return self._get_ssid().lower() in self.TELEKOM_HOTSPOT_NAMES
+    
+    def _get_ssid(self):
+        ssid_functions = {
+            'linux': self._get_ssid_unix,
+            'windows': self._get_ssid_win,
+            'darwin': self._get_ssid_osx,
+        }
+        system = platform.system().lower()
+        ssid_function = ssid_functions.get(system)
+
+        return ssid_function()
+
+    def _get_ssid_osx(self):
+        process = subprocess.Popen(['/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport','-I'], stdout=subprocess.PIPE)
+        out, err = process.communicate()
+        process.wait()
+
+        wifi_properties_as_list = [x.strip() for x in out.decode('UTF-8').splitlines()]
+        wifi_props = { i.split(': ')[0] : i.split(': ')[1] for i in wifi_properties_as_list}
+
+        return wifi_props['SSID']
+
+    def _get_ssid_win(self):
+        print("Resolving the SSID under Windows is not implemented. Assuming you are.")
+        return "TELEKOM"
+    
+    def _get_ssid_unix():
+        print("Resolving the SSID under Unix is not implemented. Assuming you are.")
+        return "TELEKOM"
+
+
+class Hotspot():
+    
+    HOTSPOT_BASE_URL='https://hotspot.t-mobile.net/wlan/rest'
+
+    def __init__(self, wifi):
+        self.wifi = wifi
+
+    def login(self, username, password):
+        if not self.wifi.is_telekom_hotspot:
+            click.echo("Not connected to Telekom hotspot")
+            return
+        response = requests.post(self.HOTSPOT_BASE_URL + '/login',
+            headers=self._get_headers(),
+            json={
+                "username": username,
+                "password": password,
+                "rememberMe": True
+            }
+        )
+        json_r = response.json()
+        click.echo(json.dumps({
+            "status": json_r['user']['wlanLoginStatus'],
+            "logged_in_since": json_r['session'].get('loginTime', '-'),
+        }, indent=4))
+
+    def logout(self):
+        if not self.wifi.is_telekom_hotspot:
+            click.echo("Not connected to Telekom hotspot")
+            return
+        response = requests.post(self.HOTSPOT_BASE_URL + '/logout',
+            headers=self._get_headers(),
+            json={
+                "logout": "doit"
+            }
+        )
+        json_r = response.json()
+        click.echo(json.dumps({
+            "status": json_r['user']['wlanLoginStatus'],
+        }, indent=4))
+    
+    def check(self):
+        if not self.wifi.is_telekom_hotspot:
+            click.echo("Not connected to Telekom hotspot")
+            return
+        response = requests.post(self.HOTSPOT_BASE_URL + '/contentapi',
+            headers=self._get_headers(),
+            json={
+                "location": {},
+                "user": {},
+                "session": {},
+                "partnerRegRequest": {}
+            }
+        )
+        json_r = response.json()
+        click.echo(json.dumps({
+            "status": json_r['user']['wlanLoginStatus'],
+            "venue": json_r['location']['locationString']['venue'],
+            "logged_in_since": json_r['session'].get('loginTime', '-'),
+        }, indent=4))
+
+    def _get_headers(self):
+        return {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json;charset=utf-8',
+        }
+
+@click.group()
+def cli():
+    pass
+
+@cli.command()
+@click.argument('username')
+@click.argument('password')
+def login(username, password):
+    Hotspot(Wifi()).login(username, password)
+
+@cli.command()
+def check():
+    Hotspot(Wifi()).check()
+
+@cli.command()
+def logout():
+    Hotspot(Wifi()).logout()
+
+if __name__ == '__main__':
+    cli()
