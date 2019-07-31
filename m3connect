@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+
+import requests
+import json
+import sys
+
+login = None
+password = None
+
+if not all([login, password]):
+    print("Enter login/password in script above")
+    sys.exit(1)
+
+
+def enable_debug():
+    import logging
+    import http.client as http_client
+    http_client.HTTPConnection.debuglevel = 1
+    logging.basicConfig()
+    logging.getLogger().setLevel(logging.DEBUG)
+    requests_log = logging.getLogger("requests.packages.urllib3")
+    requests_log.setLevel(logging.DEBUG)
+    requests_log.propagate = True
+
+
+enable_debug()
+
+
+def get_token_from_html_page(html_page_as_text):
+    start_search = 'conn4.hotspot.wbsToken = {"token":"'
+    end_search = '"'
+
+    start_token_index = html_page_as_text.index(start_search) + len(start_search)
+    program_ab_start_token_index = html_page_as_text[start_token_index:]
+    end_token_index = program_ab_start_token_index.index(end_search)
+
+    tkn = program_ab_start_token_index[:end_token_index].replace('\\', '')
+    print(tkn)
+    return tkn
+
+
+sess = requests.Session()
+
+get_portal_request = sess.get("http://neverssl.com", allow_redirects=False)
+try:
+    portal_url = get_portal_request.headers['Location']
+except KeyError:
+    print("Already logged in!")
+    sys.exit(0)
+
+portal_request = sess.get(portal_url, allow_redirects=False)
+portal_redir = portal_request.headers['Location']
+print(portal_request.url)
+print(portal_request.status_code)
+print()
+
+drei = sess.get(portal_redir, allow_redirects=False)
+drei_url = drei.headers['Location']
+print(drei.url)
+print(drei.status_code)
+print()
+
+f = sess.get(drei_url)
+base_url = f.url  # die seite mit / am ende
+sessionid = sess.cookies['PHPSESSID']
+token = get_token_from_html_page(f.text)
+print(f.url)
+print(f.status_code)
+print()
+
+a = sess.post(base_url + 'wbs/api/v1/create-session/', data={
+    "session_id": sessionid,
+    "with-tariffs": 1,
+    "locale": "de_DE",
+    "authorization": "token=" + token,
+})
+create_session_session = json.loads(a.text).get('session')
+print(a.url)
+print(a.status_code)
+print(sess.cookies)
+print(a.text)
+print()
+
+b = sess.post(base_url + 'wbs/api/v1/login/voucher/', data={
+    "authorization": "session=" + create_session_session,
+    "login[username]": login,
+    "login[password]": password,
+})
+print(b.url)
+print(b.status_code)
+print(sess.cookies)
+print(b.text)
+print()

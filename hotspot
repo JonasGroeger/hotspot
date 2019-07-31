@@ -6,13 +6,13 @@ import json
 import subprocess
 import platform
 
-class Wifi():
 
+class Wifi():
     TELEKOM_HOTSPOT_NAMES = ["t-mobile", "telekom"]
 
     def is_telekom_hotspot(self):
         return self._get_ssid().lower() in self.TELEKOM_HOTSPOT_NAMES
-    
+
     def _get_ssid(self):
         ssid_functions = {
             'linux': self._get_ssid_unix,
@@ -25,27 +25,28 @@ class Wifi():
         return ssid_function()
 
     def _get_ssid_osx(self):
-        process = subprocess.Popen(['/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport','-I'], stdout=subprocess.PIPE)
+        process = subprocess.Popen(
+            ['/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport', '-I'],
+            stdout=subprocess.PIPE)
         out, err = process.communicate()
         process.wait()
 
         wifi_properties_as_list = [x.strip() for x in out.decode('UTF-8').splitlines()]
-        wifi_props = { i.split(': ')[0] : i.split(': ')[1] for i in wifi_properties_as_list}
+        wifi_props = {i.split(': ')[0]: i.split(': ')[1] for i in wifi_properties_as_list}
 
         return wifi_props['SSID']
 
     def _get_ssid_win(self):
         print("Resolving the SSID under Windows is not implemented. Assuming you are.")
         return "TELEKOM"
-    
+
     def _get_ssid_unix():
         print("Resolving the SSID under Unix is not implemented. Assuming you are.")
         return "TELEKOM"
 
 
 class Hotspot():
-    
-    HOTSPOT_BASE_URL='https://hotspot.t-mobile.net/wlan/rest'
+    HOTSPOT_BASE_URL = 'https://hotspot.t-mobile.net/wlan/rest'
 
     def __init__(self, wifi):
         self.wifi = wifi
@@ -55,13 +56,12 @@ class Hotspot():
             click.echo("Not connected to Telekom hotspot")
             return
         response = requests.post(self.HOTSPOT_BASE_URL + '/login',
-            headers=self._get_headers(),
-            json={
-                "username": username,
-                "password": password,
-                "rememberMe": True
-            }
-        )
+                                 headers=self._get_headers(),
+                                 json={
+                                     "username": username,
+                                     "password": password,
+                                     "rememberMe": True
+                                 })
         json_r = response.json()
         click.echo(json.dumps({
             "status": json_r['user']['wlanLoginStatus'],
@@ -73,29 +73,27 @@ class Hotspot():
             click.echo("Not connected to Telekom hotspot")
             return
         response = requests.post(self.HOTSPOT_BASE_URL + '/logout',
-            headers=self._get_headers(),
-            json={
-                "logout": "doit"
-            }
-        )
+                                 headers=self._get_headers(),
+                                 json={
+                                     "logout": "doit"
+                                 })
         json_r = response.json()
         click.echo(json.dumps({
             "status": json_r['user']['wlanLoginStatus'],
         }, indent=4))
-    
+
     def check(self):
         if not self.wifi.is_telekom_hotspot:
             click.echo("Not connected to Telekom hotspot")
             return
         response = requests.post(self.HOTSPOT_BASE_URL + '/contentapi',
-            headers=self._get_headers(),
-            json={
-                "location": {},
-                "user": {},
-                "session": {},
-                "partnerRegRequest": {}
-            }
-        )
+                                 headers=self._get_headers(),
+                                 json={
+                                     "location": {},
+                                     "user": {},
+                                     "session": {},
+                                     "partnerRegRequest": {}
+                                 })
         json_r = response.json()
         click.echo(json.dumps({
             "status": json_r['user']['wlanLoginStatus'],
@@ -109,9 +107,11 @@ class Hotspot():
             'Content-Type': 'application/json;charset=utf-8',
         }
 
+
 @click.group()
 def cli():
     pass
+
 
 @cli.command()
 @click.argument('username')
@@ -119,13 +119,16 @@ def cli():
 def login(username, password):
     Hotspot(Wifi()).login(username, password)
 
+
 @cli.command()
 def check():
     Hotspot(Wifi()).check()
 
+
 @cli.command()
 def logout():
     Hotspot(Wifi()).logout()
+
 
 if __name__ == '__main__':
     cli()
