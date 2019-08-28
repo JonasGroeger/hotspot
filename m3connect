@@ -85,6 +85,34 @@ b = sess.post(base_url + 'wbs/api/v1/login/voucher/', data={
     "authorization": "session=" + create_session_session,
     "login[username]": login,
     "login[password]": password,
+	"registration[firstname]": "", 
+	"registration[lastname]": "",
+	"registration[email]": "",
+	"registration[street]": "",
+	"registration[zip]": "",
+	"registration[city]": "",
+	"registration[country]": "", 
+	"registration[phone]": "",
+	"registration[terms]": 1,
+})
+print(b.url)
+print(b.status_code)
+print(sess.cookies)
+print(b.text)
+print()
+b = sess.post(base_url + 'wbs/api/v1/login/voucher/', data={
+    "authorization": "session=" + create_session_session,
+    "login[username]": login,
+    "login[password]": password,
+	"registration[firstname]": "", 
+	"registration[lastname]": "",
+	"registration[email]": "",
+	"registration[street]": "",
+	"registration[zip]": "",
+	"registration[city]": "",
+	"registration[country]": "", 
+	"registration[phone]": "",
+	"registration[terms]": 1,
 })
 print(b.url)
 print(b.status_code)
